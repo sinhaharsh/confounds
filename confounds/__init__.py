@@ -13,6 +13,7 @@ if version_info.major >= 3:
         ConfoundsException
     from confounds.visualize import pairs
     from confounds.metrics import partial_correlation,prediction_partial_correlation
+    from confounds.reweight import Reweight
 else:
     raise NotImplementedError('confounds library requires Python 3 or higher! ')
 

@@ -70,7 +70,10 @@ def get_deconfounder(name='residualize'):
         est = Augment()
     elif name in ('dummy', 'passthrough'):
         from confounds.base import DummyDeconfounding
-        est =  DummyDeconfounding()
+        est = DummyDeconfounding()
+    elif name in ('reweight'):
+        from confounds.reweight import Reweight
+        est = Reweight()
     else:
         raise ValueError('Unrecognized model name! '
                          f'Choose one of {VALID_DECONFOUNDING_ESTIMATORS}')
@@ -129,4 +132,31 @@ def check_list(input_combat):
     #input_combat[0] = pd.get_dummies(input_combat[0])
         
     return input_combat
-    
+
+
+def _is_categorical(values):
+    """
+    Preliminary check if a variable can be assumed to
+    continuous or categorical. Not for general use, but
+    for the purpose of confounds.reweight
+    """
+    # if all are strings, assume categorical
+    if np.all([isinstance(i, str) for i in values]):
+        return True
+    elif np.size(np.unique(values))/np.size(values) < 0.01:
+        return True
+    else:
+        return False
+
+
+def _get_variable_type(data_matrix):
+    """
+    Check if a variable is continuous or categorical
+    """
+    format_string = ''
+    for i in data_matrix.T:
+        if _is_categorical(i):
+            format_string += 'u'
+        else:
+            format_string += 'c'
+    return format_string
