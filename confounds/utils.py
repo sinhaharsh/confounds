@@ -3,6 +3,8 @@ Utilities and helpers to enable a systematic study of various aspects related to
 confounds
 
 """
+import numpy as np
+from confounds.config import VALID_DECONFOUNDING_ESTIMATORS
 
 def confound_restricted_permutations(target, confounds):
     """
@@ -65,13 +67,13 @@ def get_deconfounder(name='residualize'):
     #     est =  Residualize(model='GPR')
     elif name in ('augment', 'pad'):
         from confounds.base import Augment
-        est =  Augment()
+        est = Augment()
     elif name in ('dummy', 'passthrough'):
         from confounds.base import DummyDeconfounding
         est =  DummyDeconfounding()
     else:
         raise ValueError('Unrecognized model name! '
-                         'Choose one of Residualize, Augment or Dummy.')
+                         f'Choose one of {VALID_DECONFOUNDING_ESTIMATORS}')
 
     return est
 
