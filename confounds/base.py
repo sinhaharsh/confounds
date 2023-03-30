@@ -40,12 +40,10 @@ class BaseDeconfound(BaseEstimator, TransformerMixin, ABC):
 
     _estimator_type = "deconfounder"
 
-
     def __init__(self, name='Deconfounder'):
         """Constructor"""
 
         self.name = name
-
 
     def fit(self,
             X,  # variable names chosen to correspond to sklearn when possible
@@ -53,9 +51,9 @@ class BaseDeconfound(BaseEstimator, TransformerMixin, ABC):
             ):
         """Fit method"""
 
-
     def transform(self,
-                  X,  # variable names chosen to correspond to sklearn when possible
+                  X,
+                  # variable names chosen to correspond to sklearn when possible
                   y,  # y is the confound variables here, not the target!
                   ):
         """Transform method"""
@@ -63,10 +61,9 @@ class BaseDeconfound(BaseEstimator, TransformerMixin, ABC):
 
 class Augment(BaseDeconfound):
     """
-    Deconfounding estimator class  that simply augments/concatenates the confounding
-    variables to input features prior to prediction.
+    Deconfounding estimator class  that simply augments/concatenates the
+    confounding variables to input features prior to prediction.
     """
-
 
     def __init__(self):
         """Constructor"""
@@ -74,7 +71,6 @@ class Augment(BaseDeconfound):
         super().__init__(name='Augment')
 
         # this class has no parameters
-
 
     def fit(self,
             X,  # variable names chosen to correspond to sklearn when possible
@@ -102,7 +98,6 @@ class Augment(BaseDeconfound):
 
         return self._fit(X, y)  # which itself must return self
 
-
     def _fit(self, in_features, confounds=None):
         """Actual fit method"""
 
@@ -116,13 +111,13 @@ class Augment(BaseDeconfound):
         try:
             check_consistent_length(in_features, confounds)
         except:
-            raise ValueError('X (features) and y (confounds) must have the same '
-                             'number rows/samplets!')
+            raise ValueError(
+                'X (features) and y (confounds) must have the same '
+                'number rows/samplets!')
 
         self.n_features_ = in_features.shape[1]
 
         return self
-
 
     def transform(self, X, y=None):
         """
@@ -148,16 +143,16 @@ class Augment(BaseDeconfound):
 
         return self._transform(X, y)
 
-
     def _transform(self, test_features, test_confounds):
         """Actual deconfounding of the test features"""
 
-        check_is_fitted(self, ('n_features_', ))
+        check_is_fitted(self, ('n_features_',))
         test_features = check_array(test_features, accept_sparse=True)
 
         if test_features.shape[1] != self.n_features_:
             raise ValueError('number of features must be {}. Given {}'
-                             ''.format(self.n_features_, test_features.shape[1]))
+                             ''.format(self.n_features_,
+                                       test_features.shape[1]))
 
         if test_confounds is None:  # during estimator checks
             return test_features  # do nothing
@@ -176,14 +171,12 @@ class Residualize(BaseDeconfound):
     Example methods: Linear, Kernel Ridge, Gaussian Process Regression etc
     """
 
-
     def __init__(self, model='linear'):
         """Constructor"""
 
         super().__init__(name='Residualize')
 
         self.model = model
-
 
     def fit(self,
             X,  # variable names chosen to correspond to sklearn when possible
@@ -211,7 +204,6 @@ class Residualize(BaseDeconfound):
 
         return self._fit(X, y)  # which itself must return self
 
-
     def _fit(self, in_features, confounds=None):
         """Actual fit method"""
 
@@ -235,7 +227,6 @@ class Residualize(BaseDeconfound):
         self.model_ = regr_model
 
         return self
-
 
     def transform(self, X, y=None):
         """
@@ -262,7 +253,6 @@ class Residualize(BaseDeconfound):
 
         return self._transform(X, y)
 
-
     def _transform(self, test_features, test_confounds):
         """Actual deconfounding of the test features"""
 
@@ -271,7 +261,8 @@ class Residualize(BaseDeconfound):
 
         if test_features.shape[1] != self.n_features_:
             raise ValueError('number of features must be {}. Given {}'
-                             ''.format(self.n_features_, test_features.shape[1]))
+                             ''.format(self.n_features_,
+                                       test_features.shape[1]))
 
         if test_confounds is None:  # during estimator checks
             return test_features  # do nothing
@@ -294,7 +285,6 @@ class ResidualizeTarget(BaseDeconfound):
     subtracting the contributions from the confound variables
     """
 
-
     def __init__(self):
         """Constructor"""
 
@@ -308,12 +298,10 @@ class DummyDeconfounding(BaseDeconfound):
     A do-nothing dummy method, to serve as a reference for methodological comparisons
     """
 
-
     def __init__(self):
         """Constructor"""
 
         super().__init__(name='DummyPassThrough')
-
 
     def fit(self, X, y=None):
         """
@@ -337,7 +325,6 @@ class DummyDeconfounding(BaseDeconfound):
 
         return self
 
-
     def transform(self, X, y=None):
         """
          A do-nothing transform method.
@@ -357,7 +344,7 @@ class DummyDeconfounding(BaseDeconfound):
 
         """
 
-        check_is_fitted(self, ('n_features_', ))
+        check_is_fitted(self, ('n_features_',))
         X = check_array(X, accept_sparse=True)
 
         if X.shape[1] != self.n_features_:
