@@ -4,7 +4,8 @@ import numpy as np
 import statsmodels.api as sm
 from sklearn.utils.validation import (check_array, check_consistent_length,
                                       check_is_fitted)
-
+from sklearn.utils.class_weight import compute_sample_weight, \
+    compute_class_weight
 from confounds.base import BaseDeconfound
 from confounds.utils import _get_variable_type
 
@@ -48,9 +49,7 @@ class Reweight(BaseDeconfound):
 
         return self._fit(X, y)  # which itself must return self
 
-    def _fit(self, in_features, confounds=None,
-             features_type=None,
-             confounds_type=None):
+    def _fit(self, in_features, confounds=None):
         """Actual fit method"""
 
         in_features = check_array(in_features)
@@ -67,18 +66,21 @@ class Reweight(BaseDeconfound):
                              'must have the same number of rows/samplets!')
 
         self.n_features_ = in_features.shape[1]
-        dep_type = _get_variable_type(in_features)
-        indep_type = _get_variable_type(confounds)
-        kde = sm.nonparametric.KDEMultivariateConditional(endog=in_features,
-                                                          exog=confounds,
-                                                          dep_type=dep_type,
-                                                          indep_type=indep_type,
-                                                          bw='normal_reference')
-
-        self.model_ = kde
+        # unique_values = np.unique(confounds)
+        # rowtype = np.dtype((np.void,
+        #                     confounds.dtype.itemsize * confounds.shape[1]))
+        # c = np.ascontiguousarray(confounds).view(rowtype).ravel()
+        # u = np.ascontiguousarray(unique_values).view(rowtype).ravel()
+        # c_to_as = np.argsort(c)
+        # as_to_u = c.searchsorted(u, sorter=c_to_as)
+        # map_idx = c_to_as.take(as_to_u)
+        unique, idx, inv, counts = np.unique(confounds, return_index=True,
+                                             return_counts=True,
+                                             return_inverse=True)
+        self.weights_ = compute_sample_weight('balanced', y=confounds)
         return self
 
-    def transform(self, X, y=None):
+    def transform(self, X, y):
         """
         Transforms the given feature set by residualizing the [test] features
         by subtracting the contributions of their confounding variables.
@@ -101,34 +103,33 @@ class Reweight(BaseDeconfound):
             Returns self
         """
 
-        return self._transform(X, y)
+        return self._transform()
 
-    def _transform(self, test_features, test_confounds):
+    def _transform(self):
         """Actual deconfounding of the test features"""
 
-        check_is_fitted(self, ('model_', 'n_features_'))
-        test_features = check_array(test_features, accept_sparse=True)
+        # check_is_fitted(self, ('model_', 'n_features_'))
+        # test_features = check_array(test_features, accept_sparse=True)
+        #
+        # if test_features.shape[1] != self.n_features_:
+        #     raise ValueError('number of features must be {}. Given {}'
+        #                      ''.format(self.n_features_,
+        #                                test_features.shape[1]))
+        #
+        # if test_confounds is None:  # during estimator checks
+        #     return test_features  # do nothing
+        #
+        # test_confounds = check_array(test_confounds, ensure_2d=False)
+        # if test_confounds.ndim == 1:
+        #     test_confounds = test_confounds[:, np.newaxis]
+        # check_consistent_length(test_features, test_confounds)
 
-        if test_features.shape[1] != self.n_features_:
-            raise ValueError('number of features must be {}. Given {}'
-                             ''.format(self.n_features_,
-                                       test_features.shape[1]))
+        weights = self.get_weights()
+        return weights
 
-        if test_confounds is None:  # during estimator checks
-            return test_features  # do nothing
-
-        test_confounds = check_array(test_confounds, ensure_2d=False)
-        if test_confounds.ndim == 1:
-            test_confounds = test_confounds[:, np.newaxis]
-        check_consistent_length(test_features, test_confounds)
-
-        weights = self.get_weights(test_features, test_confounds)
-        rescaled_weights = weights / np.sum(weights)
-        return rescaled_weights
-
-    def get_weights(self, test_features, test_confounds):
+    def get_weights(self):
         """Returns the weights of the reweighting model"""
-        if np.shape(test_features)[0] > 10**4:
-            warnings.warn('Warning: The number of test samples is very large. '
-                  'This may take a long time to compute.')
-        return self.model_.pdf(endog_predict=test_features, exog_predict=test_confounds)
+        # if np.shape(test_features)[0] > 10**4:
+        #     warnings.warn('Warning: The number of test samples is very large. '
+        #           'This may take a long time to compute.')
+        return self.weights_

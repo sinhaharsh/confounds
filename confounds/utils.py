@@ -71,7 +71,7 @@ def get_deconfounder(name='residualize'):
     elif name in ('dummy', 'passthrough'):
         from confounds.base import DummyDeconfounding
         est = DummyDeconfounding()
-    elif name in ('reweight'):
+    elif name in ('reweight', ):
         from confounds.reweight import Reweight
         est = Reweight()
     else:
