@@ -73,8 +73,8 @@ def test_reweight_with_pure_confounding():
 
 
     deconfounder = Reweight()
-    deconfounder.fit(C, Y)
-    sample_weights = deconfounder.transform(C, Y)
+    deconfounder.fit(X, C)
+    sample_weights = deconfounder.transform(X, C)
 
     weighted_model = SVC()
     weighted_model.fit(X, Y, sample_weight=sample_weights)

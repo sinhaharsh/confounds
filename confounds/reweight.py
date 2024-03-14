@@ -1,14 +1,19 @@
 import warnings
 
 import numpy as np
-import statsmodels.api as sm
-from sklearn.linear_model import LogisticRegression
+from scipy import stats
+from sklearn.linear_model import LogisticRegression, LinearRegression
 from sklearn.utils.validation import (check_array, check_consistent_length,
                                       check_is_fitted)
 from sklearn.utils.class_weight import compute_sample_weight, \
     compute_class_weight
 from confounds.base import BaseDeconfound
 from confounds.utils import _get_variable_type
+from matplotlib import pyplot as plt
+import matplotlib
+matplotlib.use('TkAgg')
+import pandas as pd
+import statsmodels as sm
 
 
 class Reweight(BaseDeconfound):
@@ -51,36 +56,32 @@ class Reweight(BaseDeconfound):
 
         return self._fit(X, y)  # which itself must return self
 
-    def _fit(self, X, y):
+    def _fit(self, X, C):
         """Actual fit method"""
 
-        X = check_array(X, ensure_2d=True)
-        y = check_array(y, ensure_2d=False)
+        X = check_array(X, ensure_2d=False)
+        C = check_array(C, ensure_2d=False)
 
         # turning it into 2D, in case if its just a column
         if X.ndim == 1:
             X = X[:, np.newaxis]
 
         try:
-            check_consistent_length(X, y)
+            check_consistent_length(X, C)
         except:
-            raise ValueError('y and X '
+            raise ValueError('C and X '
                              'must have the same number of rows/samplets!')
 
-        # Just testing for binary case now
-        model = LogisticRegression()
-        clf = model.fit(X, y)
-        pred_proba = clf.predict_proba(X)
-        sample_proba = pred_proba[:, 1]
 
-        # n = np.shape(confounds_)[0]
-        # _, weights = np.unique(confounds_, return_counts=True)
-        norm_weights = 1./sample_proba
-        norm_weights = norm_weights / np.sum(norm_weights)
-        self.weights = norm_weights
-        return norm_weights
+        self.adjusted_model = LinearRegression()
+        self.adjusted_model.fit(C, X)
 
-    def transform(self, X=None, y=None):
+        self.dummy_model = LinearRegression()
+        ones = np.ones_like(C)
+        self.dummy_model.fit(ones, X)
+        return self
+
+    def transform(self, X=None, C=None):
         """
         Transforms the given feature set by residualizing the [test] features
         by subtracting the contributions of their confounding variables.
@@ -103,29 +104,26 @@ class Reweight(BaseDeconfound):
             Returns self
         """
 
-        return self._transform()
+        return self._transform(X, C)
 
-    def _transform(self):
+    def _transform(self, X, C):
         """Actual deconfounding of the test features"""
 
-        # check_is_fitted(self, ('model_', 'n_features_'))
-        # test_features = check_array(test_features, accept_sparse=True)
-        #
-        # if test_features.shape[1] != self.n_features_:
-        #     raise ValueError('number of features must be {}. Given {}'
-        #                      ''.format(self.n_features_,
-        #                                test_features.shape[1]))
-        #
-        # if test_confounds is None:  # during estimator checks
-        #     return test_features  # do nothing
-        #
-        # test_confounds = check_array(test_confounds, ensure_2d=False)
-        # if test_confounds.ndim == 1:
-        #     test_confounds = test_confounds[:, np.newaxis]
-        # check_consistent_length(test_features, test_confounds)
+        adjusted_pred = self.adjusted_model.predict(C)
+        adjusted_resid_std = np.std(adjusted_pred.ravel() - X.ravel())
+        adjusted_density = stats.norm(loc=adjusted_pred,
+                                      scale=adjusted_resid_std)
+        adjusted_densities = adjusted_density.pdf(X)
 
-        weights = self.get_weights()
-        return weights
+        ones = np.ones_like(C)
+        dummy_pred = self.dummy_model.predict(ones)
+        dummy_residuals = np.std(dummy_pred.ravel() - X.ravel())
+        dummy_density = stats.norm(loc=dummy_pred, scale=dummy_residuals)
+        dummy_densities = dummy_density.pdf(X)
+        self.weights = np.divide(adjusted_densities.ravel(),
+                                 dummy_densities.ravel())
+
+        return self.weights
 
     def get_weights(self):
         """Returns the weights of the reweighting model"""
