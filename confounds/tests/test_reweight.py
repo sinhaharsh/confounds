@@ -1,12 +1,13 @@
 from confounds import Reweight
 import numpy as np
 from sklearn.linear_model import LinearRegression
-from sklearn.svm import SVR
+from sklearn.svm import SVR, SVC
 from sklearn.metrics import mean_squared_error
 from scipy.stats import skewnorm
 import matplotlib.pyplot as plt
 import matplotlib
 
+from confounds.tests.simulated_data import generate_data
 
 matplotlib.use('tkagg')
 
@@ -66,27 +67,22 @@ def test_reweight_with_pure_confounding():
     Test Reweight with pure confounding
     X <- C -> y
     """
-    num_samples = 100
-    num_features = 1
-    num_confounds = 2
-    num_targets = 1
-    skewness = -5
-    # C = np.random.randint(low=1, high=3, size=(num_samples, num_confounds))
-    C = np.ceil(4*skewnorm.rvs(a=skewness, size=(num_samples, num_confounds))+4)
-    # matrix multiply to get correlated X
-    X = np.matmul(C, 2*np.ones((num_confounds, num_features))) + 0.1*np.random.randn(num_samples, num_features)
-    y = np.matmul(C, np.ones((num_confounds, num_targets)) - 5) + 0.1*np.random.randn(num_samples, num_targets)
+
+    X, y, C = generate_data()
+    Y = y.reshape(-1, 1)
+
 
     deconfounder = Reweight()
-    deconfounder.fit(X, C)
-    sample_weights = deconfounder.transform(X, C)
-    weighted_model = SVR()
-    weighted_model.fit(X, y, sample_weight=sample_weights)
-    weighted_y_pred = weighted_model.predict(X)
-    weighted_score = mean_squared_error(y, weighted_y_pred)
+    deconfounder.fit(C, Y)
+    sample_weights = deconfounder.transform(C, Y)
 
-    vanilla_model = SVR()
-    vanilla_model.fit(X, y)
+    weighted_model = SVC()
+    weighted_model.fit(X, Y, sample_weight=sample_weights)
+    weighted_y_pred = weighted_model.predict(X)
+    weighted_score = mean_squared_error(Y, weighted_y_pred)
+
+    vanilla_model = SVC()
+    vanilla_model.fit(X, Y)
     vanilla_y_pred = vanilla_model.predict(X)
-    vanilla_score = mean_squared_error(y, vanilla_y_pred)
+    vanilla_score = mean_squared_error(Y, vanilla_y_pred)
     print(weighted_score, vanilla_score)

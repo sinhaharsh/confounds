@@ -2,6 +2,7 @@ import warnings
 
 import numpy as np
 import statsmodels.api as sm
+from sklearn.linear_model import LogisticRegression
 from sklearn.utils.validation import (check_array, check_consistent_length,
                                       check_is_fitted)
 from sklearn.utils.class_weight import compute_sample_weight, \
@@ -22,6 +23,7 @@ class Reweight(BaseDeconfound):
         super().__init__(name='Reweight')
 
         self.model = model
+        self.weights = None
 
     def fit(self,
             X,  # variable names chosen to correspond to sklearn when possible
@@ -49,38 +51,36 @@ class Reweight(BaseDeconfound):
 
         return self._fit(X, y)  # which itself must return self
 
-    def _fit(self, in_features, confounds=None):
+    def _fit(self, X, y):
         """Actual fit method"""
 
-        in_features = check_array(in_features)
-        confounds = check_array(confounds, ensure_2d=False)
+        X = check_array(X, ensure_2d=True)
+        y = check_array(y, ensure_2d=False)
 
         # turning it into 2D, in case if its just a column
-        if confounds.ndim == 1:
-            confounds = confounds[:, np.newaxis]
+        if X.ndim == 1:
+            X = X[:, np.newaxis]
 
         try:
-            check_consistent_length(in_features, confounds)
+            check_consistent_length(X, y)
         except:
-            raise ValueError('X (features) and y (confounds) '
+            raise ValueError('y and X '
                              'must have the same number of rows/samplets!')
 
-        self.n_features_ = in_features.shape[1]
-        # unique_values = np.unique(confounds)
-        # rowtype = np.dtype((np.void,
-        #                     confounds.dtype.itemsize * confounds.shape[1]))
-        # c = np.ascontiguousarray(confounds).view(rowtype).ravel()
-        # u = np.ascontiguousarray(unique_values).view(rowtype).ravel()
-        # c_to_as = np.argsort(c)
-        # as_to_u = c.searchsorted(u, sorter=c_to_as)
-        # map_idx = c_to_as.take(as_to_u)
-        unique, idx, inv, counts = np.unique(confounds, return_index=True,
-                                             return_counts=True,
-                                             return_inverse=True)
-        self.weights_ = compute_sample_weight('balanced', y=confounds)
-        return self
+        # Just testing for binary case now
+        model = LogisticRegression()
+        clf = model.fit(X, y)
+        pred_proba = clf.predict_proba(X)
+        sample_proba = pred_proba[:, 1]
 
-    def transform(self, X, y):
+        # n = np.shape(confounds_)[0]
+        # _, weights = np.unique(confounds_, return_counts=True)
+        norm_weights = 1./sample_proba
+        norm_weights = norm_weights / np.sum(norm_weights)
+        self.weights = norm_weights
+        return norm_weights
+
+    def transform(self, X=None, y=None):
         """
         Transforms the given feature set by residualizing the [test] features
         by subtracting the contributions of their confounding variables.
@@ -132,4 +132,4 @@ class Reweight(BaseDeconfound):
         # if np.shape(test_features)[0] > 10**4:
         #     warnings.warn('Warning: The number of test samples is very large. '
         #           'This may take a long time to compute.')
-        return self.weights_
+        return self.weights
