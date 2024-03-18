@@ -14,6 +14,8 @@ import matplotlib
 matplotlib.use('TkAgg')
 import pandas as pd
 import statsmodels as sm
+from sklearn.preprocessing import normalize
+
 
 
 class Reweight(BaseDeconfound):
@@ -122,8 +124,8 @@ class Reweight(BaseDeconfound):
         dummy_densities = dummy_density.pdf(X)
         self.weights = np.divide(adjusted_densities.ravel(),
                                  dummy_densities.ravel())
-
-        return self.weights
+        # self.weights = self.weights / np.sqrt(np.sum(self.weights**2))
+        return self.weights**2
 
     def get_weights(self):
         """Returns the weights of the reweighting model"""
